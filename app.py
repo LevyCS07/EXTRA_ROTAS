@@ -48,6 +48,7 @@ if rota_selecionada:
 # -----------------------------
 st.title("🗺️ Gestão Manual de Rotas")
 
+map_state = None
 if not st.session_state["colaboradores"].empty:
     m = folium.Map(location=[-3.119, -60.021], zoom_start=12)
     cluster = MarkerCluster().add_to(m)
@@ -63,27 +64,33 @@ if not st.session_state["colaboradores"].empty:
                 rota_do_colab = rota
                 break
 
-        popup_html = f"""
-        <b>{nome}</b><br>
-        Rota: {rota_do_colab if rota_do_colab else "Nenhuma"}<br>
-        <a href="javascript:window.parent.postMessage({{'add_colab':'{nome}'}}, '*')">Adicionar à rota atual</a><br>
-        <a href="javascript:window.parent.postMessage({{'remove_colab':'{nome}'}}, '*')">Remover da rota</a>
-        """
-
         folium.Marker(
             location=[lat, lon],
-            popup=popup_html,
-            icon=folium.Icon(color="blue" if not rota_do_colab else "green")
+            popup=f"{nome} - Rota: {rota_do_colab if rota_do_colab else 'Nenhuma'}",
+            icon=folium.Icon(color="green" if rota_do_colab else "blue")
         ).add_to(cluster)
 
-    st_folium(m, width=1200, height=700)
+    map_state = st_folium(m, width=1200, height=700)
 
 # -----------------------------
-# Captura de eventos JS
+# Captura de clique no mapa
 # -----------------------------
-msg = st.experimental_get_query_params()
-# OBS: no Streamlit Cloud, o postMessage pode precisar de workaround com st_folium events.
-# Aqui é apenas protótipo da lógica.
+if map_state and map_state.get("last_clicked"):
+    lat = map_state["last_clicked"]["lat"]
+    lon = map_state["last_clicked"]["lng"]
+
+    # Encontrar colaborador mais próximo do clique
+    for _, row in st.session_state["colaboradores"].iterrows():
+        if abs(row["LAT"] - lat) < 0.0005 and abs(row["LONG"] - lon) < 0.0005:
+            nome = row["COLABORADORES"]
+            rota_atual = st.session_state["rota_atual"]
+            if rota_atual:
+                if nome not in st.session_state["rotas"][rota_atual]:
+                    st.session_state["rotas"][rota_atual].append(nome)
+                    st.success(f"Colaborador {nome} adicionado à rota {rota_atual}")
+                else:
+                    st.session_state["rotas"][rota_atual].remove(nome)
+                    st.warning(f"Colaborador {nome} removido da rota {rota_atual}")
 
 # -----------------------------
 # Exportar XLSX
