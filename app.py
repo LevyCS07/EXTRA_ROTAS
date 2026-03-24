@@ -26,7 +26,14 @@ st.sidebar.header("📂 Upload")
 xlsx = st.sidebar.file_uploader("Colaboradores", type=["xlsx"])
 
 if xlsx:
-    st.session_state["colaboradores"] = pd.read_excel(xlsx)
+    df = pd.read_excel(xlsx)
+    # Renomeia colunas para padrão esperado (ajuste conforme seu arquivo)
+    df = df.rename(columns={
+        "Nome": "COLABORADORES",
+        "Latitude": "LAT",
+        "Longitude": "LONG"
+    })
+    st.session_state["colaboradores"] = df
 
 # -----------------------------
 # Criar nova rota
@@ -73,7 +80,7 @@ if not st.session_state["colaboradores"].empty:
     map_state = st_folium(m, width=1200, height=700)
 
 # -----------------------------
-# Captura de clique no mapa
+# Captura de clique no mapa + transferência
 # -----------------------------
 if map_state and map_state.get("last_clicked"):
     lat = map_state["last_clicked"]["lat"]
@@ -83,14 +90,22 @@ if map_state and map_state.get("last_clicked"):
     for _, row in st.session_state["colaboradores"].iterrows():
         if abs(row["LAT"] - lat) < 0.0005 and abs(row["LONG"] - lon) < 0.0005:
             nome = row["COLABORADORES"]
-            rota_atual = st.session_state["rota_atual"]
-            if rota_atual:
-                if nome not in st.session_state["rotas"][rota_atual]:
-                    st.session_state["rotas"][rota_atual].append(nome)
-                    st.success(f"Colaborador {nome} adicionado à rota {rota_atual}")
-                else:
-                    st.session_state["rotas"][rota_atual].remove(nome)
-                    st.warning(f"Colaborador {nome} removido da rota {rota_atual}")
+
+            st.write(f"### Colaborador selecionado: {nome}")
+            rota_destino = st.selectbox(
+                f"Transferir {nome} para rota:",
+                list(st.session_state["rotas"].keys())
+            )
+
+            if st.button(f"Confirmar transferência de {nome}"):
+                # Remove de qualquer rota anterior
+                for rota, membros in st.session_state["rotas"].items():
+                    if nome in membros:
+                        membros.remove(nome)
+
+                # Adiciona na rota escolhida
+                st.session_state["rotas"][rota_destino].append(nome)
+                st.success(f"{nome} transferido para rota {rota_destino}")
 
 # -----------------------------
 # Exportar XLSX
