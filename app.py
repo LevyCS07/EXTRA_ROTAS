@@ -119,3 +119,4 @@ if st.sidebar.button("📤 Exportar rotas"):
     buffer = io.BytesIO()
     df_export.to_excel(buffer, index=False)
     st.download_button("Baixar XLSX", buffer.getvalue(), file_name="rotas.xlsx")
+ 
