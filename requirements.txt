@@ -5,3 +5,4 @@ streamlit-folium
 openrouteservice
 ortools
 lxml
+openpyxl
