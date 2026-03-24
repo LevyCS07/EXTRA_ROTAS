@@ -19,6 +19,9 @@ if "rotas" not in st.session_state:
 if "rota_atual" not in st.session_state:
     st.session_state["rota_atual"] = None
 
+if "colab_selecionado" not in st.session_state:
+    st.session_state["colab_selecionado"] = None
+
 # -----------------------------
 # Upload
 # -----------------------------
@@ -27,7 +30,7 @@ xlsx = st.sidebar.file_uploader("Colaboradores", type=["xlsx"])
 
 if xlsx:
     df = pd.read_excel(xlsx)
-    # Renomeia colunas para padrão esperado (ajuste conforme seu arquivo)
+    # Ajuste conforme seu arquivo
     df = df.rename(columns={
         "Nome": "COLABORADORES",
         "Latitude": "LAT",
@@ -64,7 +67,6 @@ if not st.session_state["colaboradores"].empty:
         nome = row["COLABORADORES"]
         lat, lon = row["LAT"], row["LONG"]
 
-        # Verifica se colaborador já está em alguma rota
         rota_do_colab = None
         for rota, membros in st.session_state["rotas"].items():
             if nome in membros:
@@ -86,26 +88,32 @@ if map_state and map_state.get("last_clicked"):
     lat = map_state["last_clicked"]["lat"]
     lon = map_state["last_clicked"]["lng"]
 
-    # Encontrar colaborador mais próximo do clique
     for _, row in st.session_state["colaboradores"].iterrows():
         if abs(row["LAT"] - lat) < 0.0005 and abs(row["LONG"] - lon) < 0.0005:
-            nome = row["COLABORADORES"]
+            st.session_state["colab_selecionado"] = row["COLABORADORES"]
 
-            st.write(f"### Colaborador selecionado: {nome}")
-            rota_destino = st.selectbox(
-                f"Transferir {nome} para rota:",
-                list(st.session_state["rotas"].keys())
-            )
+# Se houver colaborador selecionado, mostra opções de transferência
+if st.session_state["colab_selecionado"]:
+    nome = st.session_state["colab_selecionado"]
+    st.write(f"### Colaborador selecionado: {nome}")
 
-            if st.button(f"Confirmar transferência de {nome}"):
-                # Remove de qualquer rota anterior
-                for rota, membros in st.session_state["rotas"].items():
-                    if nome in membros:
-                        membros.remove(nome)
+    if st.session_state["rotas"]:
+        rota_destino = st.selectbox(
+            f"Transferir {nome} para rota:",
+            list(st.session_state["rotas"].keys()),
+            key="rota_transferencia"
+        )
 
-                # Adiciona na rota escolhida
-                st.session_state["rotas"][rota_destino].append(nome)
-                st.success(f"{nome} transferido para rota {rota_destino}")
+        if st.button(f"Confirmar transferência de {nome}", key="btn_transferir"):
+            # Remove de qualquer rota anterior
+            for rota, membros in st.session_state["rotas"].items():
+                if nome in membros:
+                    membros.remove(nome)
+
+            # Adiciona na rota escolhida
+            st.session_state["rotas"][rota_destino].append(nome)
+            st.success(f"{nome} transferido para rota {rota_destino}")
+            st.session_state["colab_selecionado"] = None
 
 # -----------------------------
 # Exportar XLSX
@@ -119,4 +127,3 @@ if st.sidebar.button("📤 Exportar rotas"):
     buffer = io.BytesIO()
     df_export.to_excel(buffer, index=False)
     st.download_button("Baixar XLSX", buffer.getvalue(), file_name="rotas.xlsx")
- 
